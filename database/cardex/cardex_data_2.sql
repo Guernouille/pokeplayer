@@ -68,6 +68,7 @@ INSERT INTO `categories_names` (`category_id`, `local_language_id`, `name`) VALU
 --
 
 INSERT INTO `country` (`id`, `alpha3`, `name`) VALUES
+(20, 'AND', 'Andorra'),
 (32, 'ARG', 'Argentina'),
 (36, 'AUS', 'Australia'),
 (40, 'AUT', 'Austria'),
