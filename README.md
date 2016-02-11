@@ -1,4 +1,4 @@
 # pokeplayer
 Pokémon website
 
-Source code for the Cardex Search Engine will be up in a few days.
+Source code is being formatted / posted at the moment
