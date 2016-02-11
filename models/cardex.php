@@ -103,9 +103,8 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 	if(is_numeric($owner_id) && $owner_id>0) $pre_requete .= " AND t_cards.owner_id = :owner_id";
 	// Primal Trait
 	if(is_numeric($primal_trait) && $primal_trait>0) $pre_requete .= " AND t_cards.primal_trait = :primal_trait";
-	/************************************
-	*	Regex Dégâts et Énergies POSIX	*
-	************************************/
+	
+	// REGEX for Damage and Energy cost
 	$pattern_damage='';
 	$pattern_energy='';
 
@@ -115,7 +114,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 		$damage_hundred = floor($damage_done/100)%10;
 		$damage_decade = floor($damage_done/10)%10;
 		$pattern_damage='(';
-		// Supérieur ou égal
+		// Greater than or equal
 		if($damage_compare=="more_than") {
 			if($damage_done>0){
 				if($damage_decade<9) $pattern_damage.=''.$damage_thousand.$damage_hundred.'['.$damage_decade.'-9]';
@@ -131,7 +130,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 			}
 			else $pattern_damage.='[0-9]{3}';
 		}
-		// Inférieur ou égal
+		// Lower than or equal
 		elseif($damage_compare=="less_than"){
 			if($damage_decade>0) $pattern_damage.=''.$damage_thousand.$damage_hundred.'[0-'.$damage_decade.']';
 			else $pattern_damage.=$damage_thousand.$damage_hundred.'0';
@@ -144,7 +143,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 				else $pattern_damage.='|0[0-9][0-9]';
 			}
 		}
-		// Égal
+		// Equal
 		else{
 			$pattern_damage.=$damage_thousand.$damage_hundred.$damage_decade;
 		}
@@ -158,11 +157,11 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 		if($colorless_energy_required>$energy_required) $colorless_energy_required = $energy_required;
 		$colored_search = '';
 				
-		// Supérieur ou égal
+		// Greater than or equal
 		if($energy_compare=="more_than"){
 			if($energy_required_type!=NULL && strlen($energy_required_type)==1){
 				$colored_energy_required=$energy_required-$colorless_energy_required;
-				// Au moins une énergie colorée
+				// At least one colored Energy
 				if($energy_required_extra=="not_fully_colorless"){
 					if($energy_required_type!='c'){
 						$colored_search .= '['.$energy_required_type.'c]{'.($colored_energy_required-1).',}';
@@ -178,13 +177,13 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 					}
 				}
 				else{
-					// Pas d'autre couleur
+					// No other color
 					if($energy_required_extra=="no_other_color" | $energy_required_extra==""){
 						if($colored_energy_required==0) $colored_energy_required++;
 						if($energy_required_type!='c') $pattern_energy.='(^['.$energy_required_type.'c]{'.$colored_energy_required.',}'.$minimum_colorless_search.'|[0-9]['.$energy_required_type.'c]{'.$colored_energy_required.',}'.$minimum_colorless_search.')';
 						else $pattern_energy .= '(^c{'.$colored_energy_required.',}'.$minimum_colorless_search.'|[0-9]c{'.$colored_energy_required.',}'.$minimum_colorless_search.')';
 					}
-					// Autoriser d'autres couleurs
+					// Allow other colors
 					elseif($energy_required_extra=="allow_other_colors"){
 						if($energy_required_type!='c'){
 							if($colored_energy_required>1){
@@ -207,7 +206,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 							else $pattern_energy.=$minimum_colorless_search;
 						}
 					}
-					// Attaques à zéro énergies
+					// 0 Energies Attacks
 					if($energy_required==0 && $colorless_energy_required==0){
 						if($pattern_energy!='') $pattern_energy='('.$pattern_energy.'|';
 						$pattern_energy.='_';
@@ -215,7 +214,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 					}
 				}
 			}
-			// N'importe quelle couleur
+			// Any color
 			elseif($energy_required>0){
 				if($energy_required_extra=="not_fully_colorless"){
 					if($colorless_energy_required==$energy_required) $energy_required+=1;
@@ -226,17 +225,17 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 				elseif($colorless_energy_required<$energy_required) $pattern_energy='[a-z]{'.($energy_required-$colorless_energy_required).',}';
 				$pattern_energy.=$minimum_colorless_search;
 			}
-			// N'importe quel nombre d'énergies
+			// Any amount of Energies
 			else $pattern_energy='[a-z_]';
 		}
 		
-		// Zéro énergies
+		// Zero Energies
 		elseif($energy_required==0) $pattern_energy='_';
 		
-		// Inférieur ou égal
+		// Lower than or equal
 		elseif($energy_compare=="less_than"){
 			if($energy_required_type!=NULL && strlen($energy_required_type)==1){
-				// Au moins une énergie colorée
+				// At least one colored Energy
 				if($energy_required_extra=="not_fully_colorless"){
 					if($colorless_energy_required==$energy_required) $colorless_energy_required-=1;
 					$colored_energy_max=$energy_required-$colorless_energy_required;
@@ -253,9 +252,9 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 					}
 				}
 				else{
-					// Autant d'incolore que le coût total
+					// As much Colorless as total Energy cost
 					if($colorless_energy_required==$energy_required) $pattern_energy .= '(^c{'.$energy_required.'}|[0-9]c{'.$energy_required.'})';
-					// Pas d'autre couleur
+					// No other color
 					elseif($energy_required_extra=="no_other_color" | $energy_required_extra==""){
 						$colored_energy_max=$energy_required-$colorless_energy_required;
 						if($energy_required_type!='c'){
@@ -268,7 +267,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 						}
 						$pattern_energy.='(^'.$colored_search.$minimum_colorless_search.'|[0-9]'.$colored_search.$minimum_colorless_search.')';
 					}
-					// Autoriser d'autres couleurs
+					// Allow other colors
 					elseif($energy_required_extra=="allow_other_colors"){
 						$colored_energy_allowed=$energy_required-$colorless_energy_required;
 						if($energy_required_type!='c'){
@@ -289,7 +288,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 					}
 				}
 			}
-			// N'importe quelle couleur
+			// Any color
 			else{
 				if($energy_required_extra=="not_fully_colorless"){
 					if($colorless_energy_required==$energy_required) $colorless_energy_required-=1;
@@ -305,10 +304,10 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 			}
 		}
 		
-		// Égal
+		// Equal
 		else{
 			if($energy_required_type!=NULL && strlen($energy_required_type)==1){
-				// Au moins une énergie colorée
+				// At least one colored Energy
 				if($energy_required_extra=="not_fully_colorless"){
 					if($colorless_energy_required==$energy_required && $colorless_energy_required>0) $minimum_colorless_search = 'c{'.($colorless_energy_required-1).'}';
 					if($energy_required_type!='c'){
@@ -326,7 +325,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 					}
 				}
 				else{
-					// Pas d'autre couleur
+					// No other color
 					if($energy_required_extra=="no_other_color" | $energy_required_extra==""){
 						if($energy_required_type!='c'){
 							if($colorless_energy_required<$energy_required) $colored_search.='['.$energy_required_type.'c]{'.($energy_required-$colorless_energy_required).'}';
@@ -334,7 +333,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 						}
 						else $pattern_energy='(^c{'.$energy_required.'}|[0-9]c{'.$energy_required.'})';
 					}
-					// Autoriser d'autres couleurs
+					// Allow other colors
 					if($energy_required_extra=="allow_other_colors"){
 						$colored_energy_allowed=$energy_required-$colorless_energy_required;
 						if($energy_required_type!='c'){
@@ -355,7 +354,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 					}
 				}
 			}
-			// N'importe quelle couleur
+			// Any color
 			else{
 				if($energy_required_extra=="not_fully_colorless"){
 					if($colorless_energy_required==$energy_required) $colorless_energy_required-=1;
@@ -368,7 +367,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 			}
 		}
 	}
-	// Si seulement un nombre d'énergies incolores requises est soumis (pas de coût total en énergie)
+	// If only a Colorless Energy cost is submitted (no total Energy cost submitted)
 	elseif($colorless_energy_required>0){
 		if($colorless_energy_required>0) $minimum_colorless_search = 'c{'.$colorless_energy_required.'}';
 		else $minimum_colorless_search = '';
@@ -402,7 +401,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 			else $pattern_energy=$minimum_colorless_search;
 		}
 	}
-	// Si seulement une couleur d'énergie est soumise (pas de coût en énergie)
+	// If only an Energy color is submitted (no Energy cost submitted)
 	elseif($energy_required_type!=NULL && strlen($energy_required_type)==1){
 		if($energy_required_extra=="not_fully_colorless"){
 			if($energy_required_type!='c') $pattern_energy='(^'.$energy_required_type.'{1,}['.$energy_required_type.'c]{0,}|[0-9]'.$energy_required_type.'{1,}['.$energy_required_type.'c]{0,})';
@@ -425,9 +424,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 	elseif($pattern_energy!='') $pre_requete .= ' AND t_cards.attacks REGEXP "('.$pattern_energy.'[0-9]{3})"';
 	
 	
-	/****************
-	*	Order by	*
-	****************/
+	// Order By
 	if($order_by!=NULL) $pre_requete .= " ORDER BY t_cards.".$order_by." ASC LIMIT 0, 250";
 	elseif(strlen($search_name) > 3) $pre_requete .= " ORDER BY name_relevance DESC LIMIT 0, 250";
 	else $pre_requete .= " ORDER BY t_cards.set_id, t_cards.number ASC LIMIT 0, 250";
