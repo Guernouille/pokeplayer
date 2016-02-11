@@ -1,25 +1,4 @@
 <?php
-function calc_string_width($string)
-{
-	$string_width = 0;
-	$string = preg_replace("#À#","A",$string);
-	$string = preg_replace("#à#","a",$string);
-	$string = preg_replace("#É|È#","E",$string);
-	$string = preg_replace("#é|è#","e",$string);
-	$string = preg_replace("#Æ|æ#","M",$string);
-	$string = preg_replace("#Œ#","ac",$string);
-	$string = preg_replace("#œ#","m",$string);
-	$char_width = array("0"=>9, "1"=>5, "2"=>8, "3"=>8, "4"=>8, "5"=>8, "6"=>8, "7"=>7, "8"=>8, "9"=>8, "A"=>10, "B"=>9, "C"=>9, "D"=>10, "E"=>8, "F"=>8, "G"=>10, "H"=>11, "I"=>5, "J"=>4, "K"=>9, "L"=>8, "M"=>13, "N"=>9, "O"=>10, "P"=>8, "Q"=>10, "R"=>10, "S"=>8, "T"=>9, "U"=>10, "V"=>10, "W"=>14, "X"=>9, "Y"=>10, "Z"=>8, "a"=>8, "b"=>9, "c"=>7, "d"=>9, "e"=>8, "f"=>6, "g"=>9, "h"=>9, "i"=>5, "j"=>4, "k"=>8, "l"=>4, "m"=>13, "n"=>9, "o"=>8, "p"=>9, "q"=>8, "r"=>6, "s"=>6, "t"=>6, "u"=>9, "v"=>8, "w"=>11, "x"=>8, "y"=>8, "z"=>7, " "=>4, "!"=>3, '"'=>6, "#"=>8, "$"=>8, "%"=>11, "&"=>9, "'"=>3, "("=>4, ")"=>4, "*"=>6, "+"=>7, ","=>4, "-"=>6, "."=>4, "/"=>7, ":"=>4, ";"=>4, "<"=>8, "="=>9, ">"=>8, "?"=>6, "@"=>12, "["=>4, "\\"=>7, "]"=>4, "^"=>9, "_"=>7, "`"=>6, "{"=>4, "|"=>4, "}"=>4);
-	foreach (count_chars($string, 1) as $chr => $iterations) {
-		if($chr==128 || $chr==130 || $chr==153 || $chr==180 || $chr==206 || $chr==226)
-			$string_width += 5;
-		else
-			$string_width += $char_width[chr($chr)]*$iterations;
-		
-	}
-	return $string_width;
-}
-
 /* SEARCH ENGINE */
 function cardex_search_engine($search_name, $search_text, $set_list, $rarity_list, $category_list, $type_list, $hp_min, $hp_max, $weakness, $resistance, $is_it_weak, $is_it_resist, $retreat_min, $retreat_max, $owner_id, $criteria_mode, $criteria1, $criteria2, $criteria3, $criteria4, $criteria5, $criteria6, $variable_damage1, $variable_damage2, $variable_damage3, $damage_compare, $damage_done, $energy_compare, $energy_required, $energy_required_type, $colorless_energy_required, $energy_required_extra, $primal_trait, $search_retrieve1, $search_retrieve2, $format, $order_by=NULL, $language=DEFAULT_LANGUAGE)
 {
