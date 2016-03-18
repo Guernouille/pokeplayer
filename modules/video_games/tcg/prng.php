@@ -1,7 +1,11 @@
 <?php
 $carry_flag = $old_carry = $zero_flag = $caca = $cacb = $cacc = $prnA = $prnB = $reg_a = $reg_b = $reg_c = $reg_d = $reg_e = $reg_h = $reg_l = 0;
+// Replace with the desired starting iteration and number of iterations
+$starting_iteration = 0x00;
+$iterations = 0x1000;
+
 echo '<span style="font-family:Courier New">';
-for($i=1;$i<0x1000;$i++){
+for($i=1;$i<$iterations;$i++){
 	$reg_a = $caca;
 	$reg_d = $cacb;
 	$reg_e = $reg_a;
@@ -42,8 +46,7 @@ for($i=1;$i<0x1000;$i++){
 	$cacb = $reg_d;
 	$caca = $reg_e;
 	
-	// Replace 0x00 with the desired starting iteration
-	if($i>=0x00){
+	if($i>=$starting_iteration){
 		if($i<0x100){
 		echo "0";
 		}
