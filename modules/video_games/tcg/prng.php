@@ -42,6 +42,7 @@ for($i=1;$i<0x1000;$i++){
 	$cacb = $reg_d;
 	$caca = $reg_e;
 	
+	// Replace 0x00 with the desired starting iteration
 	if($i>=0x00){
 		if($i<0x100){
 		echo "0";
