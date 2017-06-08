@@ -1,6 +1,6 @@
 <?php
 /* SEARCH ENGINE */
-function cardex_search_engine($search_name, $search_text, $set_list, $rarity_list, $category_list, $type_list, $hp_min, $hp_max, $weakness, $resistance, $is_it_weak, $is_it_resist, $retreat_min, $retreat_max, $owner_id, $criteria_mode, $criteria1, $criteria2, $criteria3, $criteria4, $criteria5, $criteria6, $variable_damage1, $variable_damage2, $variable_damage3, $damage_compare, $damage_done, $energy_compare, $energy_required, $energy_required_type, $colorless_energy_required, $energy_required_extra, $primal_trait, $search_retrieve1, $search_retrieve2, $format, $order_by=NULL, $language=DEFAULT_LANGUAGE)
+function cardex_search_engine($search_name, $search_text, $set_list, $rarity_list, $category_list, $type_list, $hp_min, $hp_max, $weakness, $resistance, $is_it_weak, $is_it_resist, $retreat_min, $retreat_max, $owner_id, $criteria_mode, $criteria1, $criteria2, $criteria3, $criteria4, $criteria5, $criteria6, $variable_damage1, $variable_damage2, $variable_damage3, $damage_compare, $damage_done, $energy_compare, $energy_required, $energy_required_type, $colorless_energy_required, $energy_required_extra, $primal_trait, $search_retrieve1, $search_retrieve2, $format, $order_by=NULL, $language=DEFAULT_LANGUAGE, $full_art=NULL, $terribad=NULL)
 {
 	$card_list = array();
 	$order_by = htmlentities($order_by);
@@ -8,7 +8,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT *";
 	if(strlen($search_name) > 3 || $search_name === "az" || $search_name === "n") $pre_requete .= ", MATCH (t_cards_names.name) AGAINST (:search_name) AS name_relevance";
-	$pre_requete .= " FROM ".SQL_TABLE_PREFIX."cards".SQL_TABLE_SUFFIX." AS t_cards, ".SQL_TABLE_PREFIX."cards_names".SQL_TABLE_SUFFIX." AS t_cards_names
+	$pre_requete .= " FROM cards AS t_cards, cards_names AS t_cards_names
 					WHERE t_cards_names.local_language_id = :language
 					AND t_cards.set_id = t_cards_names.set_id
 					AND t_cards.number = t_cards_names.number";
@@ -103,8 +103,13 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 	if(is_numeric($owner_id) && $owner_id>0) $pre_requete .= " AND t_cards.owner_id = :owner_id";
 	// Primal Trait
 	if(is_numeric($primal_trait) && $primal_trait>0) $pre_requete .= " AND t_cards.primal_trait = :primal_trait";
-	
-	// REGEX for Damage and Energy cost
+	// Full Art
+	if(is_numeric($full_art)) $pre_requete .= " AND t_cards.full_art = :full_art";
+	// Terribad
+	if(is_numeric($terribad)) $pre_requete .= " AND t_cards.resistance2_amount = :terribad";
+	/************************************
+	*	Regex Damage and Energies POSIX	*
+	************************************/
 	$pattern_damage='';
 	$pattern_energy='';
 
@@ -252,7 +257,7 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 					}
 				}
 				else{
-					// As much Colorless as total Energy cost
+					// As many Colorless as the total Energy cost
 					if($colorless_energy_required==$energy_required) $pattern_energy .= '(^c{'.$energy_required.'}|[0-9]c{'.$energy_required.'})';
 					// No other color
 					elseif($energy_required_extra=="no_other_color" | $energy_required_extra==""){
@@ -424,7 +429,9 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 	elseif($pattern_energy!='') $pre_requete .= ' AND t_cards.attacks REGEXP "('.$pattern_energy.'[0-9]{3})"';
 	
 	
-	// Order By
+	/****************
+	*	Order by	*
+	****************/
 	if($order_by!=NULL) $pre_requete .= " ORDER BY t_cards.".$order_by." ASC LIMIT 0, 250";
 	elseif(strlen($search_name) > 3) $pre_requete .= " ORDER BY name_relevance DESC LIMIT 0, 250";
 	else $pre_requete .= " ORDER BY t_cards.set_id, t_cards.number ASC LIMIT 0, 250";
@@ -484,6 +491,8 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 	}
 	if(is_numeric($owner_id) && $owner_id>0) $requete->bindValue(':owner_id', $owner_id);
 	if(is_numeric($primal_trait) && $primal_trait>0) $requete->bindValue(':primal_trait', $primal_trait);
+	if(is_numeric($full_art)) $requete->bindValue(':full_art', $full_art);
+	if(is_numeric($terribad)) $requete->bindValue(':terribad', "bad");
 	$requete->execute();
 	
 	$number_of_results = $requete->rowCount();
@@ -499,20 +508,64 @@ function cardex_search_engine($search_name, $search_text, $set_list, $rarity_lis
 			}
 		}
 	}
-	// var_dump($requete->errorInfo());
 	$requete->closeCursor();
 	return $card_list;
 }
 
+function get_block_data($block_id=NULL)
+{
+	$block_data = array();
+	
+	if($block_id!=NULL && is_numeric($block_id)) {
+		$pdo = PDO2_CARDEX::getInstance();
+		$pre_requete = "SELECT	identifier, name
+						FROM	blocks
+						WHERE	id = :block_id";
+		
+		$requete = $pdo->prepare($pre_requete);
+		$requete->bindValue(':block_id', $block_id);
+		$requete->execute();
+		
+		if($result = $requete->fetch(PDO::FETCH_ASSOC)) {
+			$block_data['identifier'] = $result['identifier'];
+			$block_data['name'] = $result['name'];
+		}
+	}
+		
+	return $block_data;
+}
+
+function get_block_sets($block_id=NULL)
+{
+	$sets_ids = array();
+	
+	if($block_id!=NULL && is_numeric($block_id)) {
+		$pdo = PDO2_CARDEX::getInstance();
+		$pre_requete = "SELECT	set_id
+						FROM	blocks_sets
+						WHERE	block_id = :block_id
+						ORDER BY set_order ASC";
+		
+		$requete = $pdo->prepare($pre_requete);
+		$requete->bindValue(':block_id', $block_id);
+		$requete->execute();
+		
+		while($result = $requete->fetch(PDO::FETCH_ASSOC)) {
+			$sets_ids[] = $result['set_id'];
+		}
+	}
+	
+	return $sets_ids;
+}
 
 function get_card_data($set_id=NULL, $card_number=NULL)
 {
 	$card_data = array();
 	
-	if ($set_id!=NULL && is_numeric($set_id) && $card_number!=NULL && is_numeric($card_number)) {
+	if($set_id!=NULL && is_numeric($set_id) && $card_number!=NULL && is_numeric($card_number)) {
 		$pdo = PDO2_CARDEX::getInstance();
 		$pre_requete = "SELECT	*
-						FROM	".SQL_TABLE_PREFIX."cards".SQL_TABLE_SUFFIX."
+						FROM	cards
 						WHERE	set_id = :set_id
 						AND		number = :card_number";
 		
@@ -566,7 +619,7 @@ function get_card_list($set_id=NULL)
 	if ($set_id!=NULL && is_numeric($set_id)) {
 		$pdo = PDO2_CARDEX::getInstance();
 		$pre_requete = "SELECT	*
-						FROM	".SQL_TABLE_PREFIX."cards".SQL_TABLE_SUFFIX."
+						FROM	cards
 						WHERE	set_id = :set_id
 						ORDER BY number";
 		
@@ -574,7 +627,7 @@ function get_card_list($set_id=NULL)
 		$requete->bindValue(':set_id', $set_id);
 		$requete->execute();
 		
-		while ($result = $requete->fetch(PDO::FETCH_BOTH)){
+		while($result = $requete->fetch(PDO::FETCH_BOTH)){
 			$card_list['identifier'][] = $result['identifier'];
 			$card_list['number'][] = $result['number'];
 			$card_list['category_id'][] = $result['category_id'];
@@ -605,7 +658,7 @@ function get_card_name_text($set_id=NULL, $card_number=NULL, $language=DEFAULT_L
 	if ($set_id!=NULL && is_numeric($set_id) && $card_number!=NULL && is_numeric($card_number)) {
 		$pdo = PDO2_CARDEX::getInstance();
 		$pre_requete = "SELECT	*
-						FROM	".SQL_TABLE_PREFIX."cards_names".SQL_TABLE_SUFFIX."
+						FROM	cards_names
 						WHERE	set_id = :set_id
 						AND		number = :card_number
 						AND		local_language_id = :language";
@@ -631,7 +684,7 @@ function get_category_identifier($category_id=NULL)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	identifier
-					FROM	".SQL_TABLE_PREFIX."categories".SQL_TABLE_SUFFIX."
+					FROM	categories
 					WHERE	id = :category_id";
 	$requete = $pdo->prepare($pre_requete);
 	$requete->bindValue(':category_id', $category_id);
@@ -650,7 +703,7 @@ function get_category_list()
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	*
-					FROM	".SQL_TABLE_PREFIX."categories".SQL_TABLE_SUFFIX;
+					FROM	categories";
 	$requete = $pdo->prepare($pre_requete);
 	$requete->execute();
 	
@@ -669,7 +722,7 @@ function get_category_name($category_id=NULL, $language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	name
-					FROM	".SQL_TABLE_PREFIX."categories_names".SQL_TABLE_SUFFIX."
+					FROM	categories_names
 					WHERE	category_id = :category_id
 					AND		local_language_id = :language";
 	$requete = $pdo->prepare($pre_requete);
@@ -690,7 +743,7 @@ function get_category_names($category_list=NULL, $language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	category_id, name
-					FROM	".SQL_TABLE_PREFIX."categories_names".SQL_TABLE_SUFFIX."
+					FROM	categories_names
 					WHERE	local_language_id = :language";
 	if (is_array($category_list)){
 		$pre_requete .= " AND category_id IN (";
@@ -715,7 +768,7 @@ function get_criteria_group_list($language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	id, name
-					FROM	".SQL_TABLE_PREFIX."criterias_groups".SQL_TABLE_SUFFIX."
+					FROM	criterias_groups
 					WHERE	local_language_id = :language";
 	$requete = $pdo->prepare($pre_requete);
 	$requete->bindValue(':language', $language);
@@ -735,7 +788,7 @@ function get_criteria_list($language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	id, group_id, name, criterias_order, format_id
-					FROM	".SQL_TABLE_PREFIX."criterias".SQL_TABLE_SUFFIX."
+					FROM	criterias
 					WHERE	local_language_id = :language
 					ORDER BY criterias_order";
 	$requete = $pdo->prepare($pre_requete);
@@ -759,7 +812,7 @@ function get_format_id($format="unlimited")
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	id
-					FROM	".SQL_TABLE_PREFIX."formats".SQL_TABLE_SUFFIX."
+					FROM	formats
 					WHERE	identifier = :format";
 	$requete = $pdo->prepare($pre_requete);
 	$requete->bindValue(':format', $format);
@@ -778,7 +831,7 @@ function get_owners($format_id=1, $language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	id, name
-					FROM	".SQL_TABLE_PREFIX."owners".SQL_TABLE_SUFFIX."
+					FROM	owners
 					WHERE	format_id = :format_id
 					AND		local_language_id = :language
 					ORDER BY name";
@@ -801,7 +854,7 @@ function get_primal_traits($language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	*
-					FROM	".SQL_TABLE_PREFIX."primal_traits".SQL_TABLE_SUFFIX."
+					FROM	primal_traits
 					WHERE	local_language_id = :language";
 	$requete = $pdo->prepare($pre_requete);
 	$requete->bindValue(':language', $language);
@@ -821,7 +874,7 @@ function get_rarity_identifier($rarity_id=NULL)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	identifier
-					FROM	".SQL_TABLE_PREFIX."rarity".SQL_TABLE_SUFFIX."
+					FROM	rarity
 					WHERE	id = :rarity_id";
 	$requete = $pdo->prepare($pre_requete);
 	$requete->bindValue(':rarity_id', $rarity_id);
@@ -840,7 +893,7 @@ function get_rarity_list()
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	*
-					FROM	".SQL_TABLE_PREFIX."rarity".SQL_TABLE_SUFFIX;
+					FROM	rarity";
 	$requete = $pdo->prepare($pre_requete);
 	$requete->execute();
 	
@@ -860,7 +913,7 @@ function get_rarity_name($rarity_id=NULL, $language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	name
-					FROM	".SQL_TABLE_PREFIX."rarity_names".SQL_TABLE_SUFFIX."
+					FROM	rarity_names
 					WHERE	rarity_id = :rarity_id
 					AND		local_language_id = :language";
 	$requete = $pdo->prepare($pre_requete);
@@ -881,7 +934,7 @@ function get_rarity_names($rarity_list=NULL, $language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	rarity_id, name
-					FROM	".SQL_TABLE_PREFIX."rarity_names".SQL_TABLE_SUFFIX."
+					FROM	rarity_names
 					WHERE	local_language_id = :language";
 	if (is_array($rarity_list)){
 		$pre_requete .= " AND rarity_id IN (";
@@ -907,7 +960,7 @@ function get_set_card_total($identifier=NULL)
 	if ($identifier!=NULL){
 		$pdo = PDO2_CARDEX::getInstance();
 		$pre_requete = "SELECT	card_total
-						FROM	".SQL_TABLE_PREFIX."sets".SQL_TABLE_SUFFIX."
+						FROM	sets
 						WHERE	identifier = :identifier";
 		$requete = $pdo->prepare($pre_requete);
 		$requete->bindValue(':identifier', $identifier);
@@ -928,7 +981,7 @@ function get_set_id($identifier=NULL)
 	if ($identifier!=NULL){
 		$pdo = PDO2_CARDEX::getInstance();
 		$pre_requete = "SELECT	id
-						FROM	".SQL_TABLE_PREFIX."sets".SQL_TABLE_SUFFIX."
+						FROM	sets
 						WHERE	identifier = :identifier";
 		$requete = $pdo->prepare($pre_requete);
 		$requete->bindValue(':identifier', $identifier);
@@ -949,7 +1002,7 @@ function get_set_identifier($id=NULL)
 	if ($id!=NULL){
 		$pdo = PDO2_CARDEX::getInstance();
 		$pre_requete = "SELECT	identifier
-						FROM	".SQL_TABLE_PREFIX."sets".SQL_TABLE_SUFFIX."
+						FROM	sets
 						WHERE	id = :id";
 		$requete = $pdo->prepare($pre_requete);
 		$requete->bindValue(':id', $id);
@@ -969,7 +1022,7 @@ function get_set_list()
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	*
-					FROM	".SQL_TABLE_PREFIX."sets".SQL_TABLE_SUFFIX."
+					FROM	sets
 					ORDER BY set_order";
 	$requete = $pdo->prepare($pre_requete);
 	$requete->execute();
@@ -992,7 +1045,7 @@ function get_set_name($set_id=NULL, $language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	name
-					FROM	".SQL_TABLE_PREFIX."sets_names".SQL_TABLE_SUFFIX."
+					FROM	sets_names
 					WHERE	id = :set_id
 					AND		local_language_id = :language";
 	$requete = $pdo->prepare($pre_requete);
@@ -1013,7 +1066,7 @@ function get_set_names($set_list=NULL, $language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	id, name
-					FROM	".SQL_TABLE_PREFIX."sets_names".SQL_TABLE_SUFFIX."
+					FROM	sets_names
 					WHERE	local_language_id = :language";
 	if(is_array($set_list)) {
 		$pre_requete .= " AND id IN (";
@@ -1033,13 +1086,42 @@ function get_set_names($set_list=NULL, $language=DEFAULT_LANGUAGE)
 	return $set_names;
 }
 
+function get_sets_data($set_ids=NULL)
+{
+	$set_list = array();
+	
+	$pdo = PDO2_CARDEX::getInstance();
+	$pre_requete = "SELECT	*
+					FROM	sets";
+					
+	if(is_array($set_ids)){
+		$pre_requete .= " WHERE id IN (";
+		foreach($set_ids as $set_id)
+			$pre_requete .= $set_id.",";
+		$pre_requete = preg_replace('#(,{1})$#', ')', $pre_requete);
+	}
+	$requete = $pdo->prepare($pre_requete);
+	$requete->execute();
+	
+	while ($result = $requete->fetch(PDO::FETCH_BOTH)){
+		$set_list['id'][] = $result['id'];
+		$set_list['identifier'][] = $result['identifier'];
+		$set_list['card_total'][] = $result['card_total'];
+		$set_list['released'][] = $result['released'];
+		$set_list['set_order'][] = $result['set_order'];
+	}
+	$requete->closeCursor();
+	
+	return $set_list;
+}
+
 function get_type_identifier($type_id=NULL, $language=DEFAULT_LANGUAGE)
 {
 	$type_identifier = '';
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	identifier
-					FROM	".SQL_TABLE_PREFIX."types".SQL_TABLE_SUFFIX."
+					FROM	types
 					WHERE	id = :type_id";
 	$requete = $pdo->prepare($pre_requete);
 	$requete->bindValue(':type_id', $type_id);
@@ -1059,7 +1141,7 @@ function get_type_list()
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	*
-					FROM	".SQL_TABLE_PREFIX."types".SQL_TABLE_SUFFIX;
+					FROM	types";
 	$requete = $pdo->prepare($pre_requete);
 	$requete->execute();
 	
@@ -1079,7 +1161,7 @@ function get_type_name($type_id=NULL, $language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	name
-					FROM	".SQL_TABLE_PREFIX."types_names".SQL_TABLE_SUFFIX."
+					FROM	types_names
 					WHERE	type_id = :type_id
 					AND		local_language_id = :language";
 	$requete = $pdo->prepare($pre_requete);
@@ -1100,7 +1182,7 @@ function get_type_symbol($type_id=NULL)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	symbol
-					FROM	".SQL_TABLE_PREFIX."types".SQL_TABLE_SUFFIX."
+					FROM	types
 					WHERE	id = :type_id";
 	$requete = $pdo->prepare($pre_requete);
 	$requete->bindValue(':type_id', $type_id);
@@ -1119,7 +1201,7 @@ function get_variable_damage_group_list($language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	id, name
-					FROM	".SQL_TABLE_PREFIX."variable_damage_groups".SQL_TABLE_SUFFIX."
+					FROM	variable_damage_groups
 					WHERE	local_language_id = :language";
 	$requete = $pdo->prepare($pre_requete);
 	$requete->bindValue(':language', $language);
@@ -1139,7 +1221,7 @@ function get_variable_damage_list($language=DEFAULT_LANGUAGE)
 	
 	$pdo = PDO2_CARDEX::getInstance();
 	$pre_requete = "SELECT	id, group_id, name, variable_damage_order, format_id
-					FROM	".SQL_TABLE_PREFIX."variable_damage".SQL_TABLE_SUFFIX."
+					FROM	variable_damage
 					WHERE	local_language_id = :language
 					ORDER BY variable_damage_order";
 	$requete = $pdo->prepare($pre_requete);
